@@ -43,5 +43,5 @@ A simulation on how social distancing can decrease the speed at which a disease 
 
 #### Output
 
-- Simulation1_SimulationVideo.mp4:![Simulation Example](Simulation1_SimulationVideo.mp4)
-- Simulation1_Graph.png:![Graph Example](/Simulation1_Graph.png)
+- Simulation1_SimulationVideo.mp4:![Simulation Example](https://imgur.com/5hxtm4E)
+- Simulation1_Graph.png:![Graph Example](https://imgur.com/qHLtHMK)
