@@ -40,7 +40,7 @@ A simulation on how social distancing can decrease the speed at which a disease 
 
 #### Command
 
-<pre><code>python main.py -p 150 -s 50 -c 0.5 -a 25 -o Simulation1</code></pre>
+<pre><code>python main.py -p 150 -s 50 -c 0.5 -a 25 -m 0.5 -o Simulation1</code></pre>
 
 #### Output
 

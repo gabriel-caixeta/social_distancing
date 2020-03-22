@@ -244,6 +244,14 @@ class SocialDistancing:
             prev = add_lists([prev,data])
         plt.legend(labels)
         plt.xticks([])
+
+        if self.output_filename:
+            try:
+                output_file = self.output_filename + '_Graph.png'
+                plt.savefig(output_file, facecolor='w', edgecolor='w')
+            except:
+                print("Unable to save the simulation graph")
+
         plt.show()
 
 def add_lists(args):
