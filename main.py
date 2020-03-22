@@ -31,7 +31,7 @@ speed: (x,y) vector that defines the direction and speed at which is moving
 sick_days: how long the person has been sick
 '''
 class Person:
-    def __init__(self, category,total_size,recover_period):
+    def __init__(self, category,total_size,recover_period,mortality):
         self.recover_period = recover_period
         self.total_size = total_size
         self.category = category
@@ -41,6 +41,7 @@ class Person:
         self.speed = [0,0]
         self.redirect()
         self.sick_days = 0
+        self.mortality = mortality
 
     def stop(self):
         self.speed = [0,0]
@@ -74,7 +75,15 @@ class Person:
             self.sick_days += 1
 
             if self.sick_days >= self.recover_period:
-                self.recovered()
+                self.end_of_disease()
+                # self.recovered()
+
+    def end_of_disease(self):
+        if np.random.random_sample() <= self.mortality:
+            self.status = 'Dead'
+            self.speed = [0,0]
+        else:
+            self.recovered()
 
     # randomizes the speed
     def redirect(self):
@@ -82,7 +91,7 @@ class Person:
 
     # infect the person, if the person is not social spacing, randomizes the speed
     def contaminate(self):
-        if (not self.status == 'Sick') and (not self.status == 'Recovered'):
+        if (not self.status == 'Sick') and (not self.status == 'Recovered') and (not self.status == 'Dead'):
             self.status = 'Sick'
             self.sick_days = 0
             if not self.is_social_spacing():
@@ -105,7 +114,8 @@ class SocialDistancing:
                  output_filename=None,
                  contamination_rate=1,
                  total_area=20,
-                 recover_period=200):
+                 recover_period=200,
+                 mortality = 0):
 
         self.recover_period = recover_period
         self.population = int(population)
@@ -113,6 +123,7 @@ class SocialDistancing:
         self.contamination_rate = float(contamination_rate)
         self.output_filename = output_filename
         self.total_size = int(total_area)
+        self.mortality = float(mortality)
 
         self.people = []
 
@@ -133,7 +144,7 @@ class SocialDistancing:
                     person.contaminate()
 
     def run_simulation(self):
-        self.people = [Person('Normal',self.total_size,self.recover_period) for i in range(self.population)]
+        self.people = [Person('Normal',self.total_size,self.recover_period,self.mortality) for i in range(self.population)]
 
         if self.social_spacing:
             people_ss = self.people[-self.social_spacing:]
@@ -155,6 +166,8 @@ class SocialDistancing:
                          [person.position_y for person in self.people if person.status == 'Recovered'],'yo')
         self.d_healthy, = self.ax.plot([person.position_x for person in self.people if person.status == 'Healthy'],
                          [person.position_y for person in self.people if person.status == 'Healthy'],'bo')
+        self.d_dead, = self.ax.plot([person.position_x for person in self.people if person.status == 'Dead'],
+                                    [person.position_y for person in self.people if person.status == 'Dead'],'ko')
         self.d = [self.d_sick, self.d_healthy, self.d_recovered]
 
         self.data = []
@@ -181,14 +194,17 @@ class SocialDistancing:
                                       [person.position_y for person in self.people if person.status == 'Recovered'],)
             self.d_healthy.set_data([person.position_x for person in self.people if person.status == 'Healthy'],
                                     [person.position_y for person in self.people if person.status == 'Healthy'])
+            self.d_dead.set_data([person.position_x for person in self.people if person.status == 'Dead'],
+                                 [person.position_y for person in self.people if person.status == 'Dead'])
 
             sick = len(self.d_sick.get_data()[0])
             healthy = len(self.d_healthy.get_data()[0])
             recovered = len(self.d_recovered.get_data()[0])
+            dead = len(self.d_dead.get_data()[0])
 
-            self.data.append([sick, healthy, recovered])
+            self.data.append([sick, healthy, recovered,dead])
 
-            print('{} -> Sick: {}, Healthy: {}, Recovered: {}'.format(i, sick, healthy, recovered))
+            print('{} -> Sick: {}, Healthy: {}, Recovered: {}, Dead: {}'.format(i, sick, healthy, recovered, dead))
 
             return self.d,
 
@@ -205,53 +221,53 @@ class SocialDistancing:
         plt.show()
 
     def plot_graph(self):
-        def overlapped_bar(df, show=False, width=0.9, alpha=.5,
-                           title='', xlabel='', ylabel='', **plot_kwargs):
-            N = len(df)
-            M = len(df.columns)
-            indices = np.arange(N)
-            colors = ['yellow', 'blue', 'red']
-            for i, label, color in zip(range(M), df.columns, colors):
-                kwargs = plot_kwargs
-                kwargs.update({'color': color, 'label': label})
-                plt.bar(indices, df[label], width=width, alpha=alpha if i else 1, **kwargs)
-                plt.xticks([])
-            plt.legend()
-            plt.title(title)
+        sick = [d[0] for d in self.data]
 
-            plt.ylabel(ylabel)
-
-            if self.output_filename:
-                try:
-                    output_file = self.output_filename + '_Graph.png'
-                    plt.savefig(output_file,facecolor='w', edgecolor='w')
-                except:
-                    print("Unable to save the simulation graph")
-            if show:
-                plt.show()
-            return plt.gcf()
-
-        sick, healthy, recovered = [],[],[]
-        for i,j,k in self.data:
-            sick.append(i)
-            healthy.append(j)
-            recovered.append(k)
+        self.data = [[d[0] for d in self.data],
+                     [d[1] for d in self.data],
+                     [d[2] for d in self.data],
+                     [d[3] for d in self.data]]
 
         print("Peak of sick people: {}".format(max(sick)))
 
-        df = pd.DataFrame(np.matrix([recovered,healthy, sick]).T, columns=['Recovered', 'Healthy', 'Sick'],
-                          index=pd.Index(['T%s' % i for i in range(len(sick))]))
-        overlapped_bar(df, show=True)
+        position = np.arange(len(sick))
+
+        colors = ['red', 'blue', 'yellow','black']
+        labels = ['Sick','Recovered','Recovered','Dead']
+
+        prev = [0 for i in self.data[0]]
+
+        for color, data, label in zip(colors,self.data, labels):
+
+            p = plt.bar(position, data,color=color,label=label,bottom=prev, width=1)
+
+            prev = add_lists([prev,data])
+        plt.legend(labels)
+        plt.xticks([])
+        plt.show()
+
+def add_lists(args):
+    tmp = []
+    for ind, item in enumerate(args[0]):
+        t = item
+        for lst in args[1:]:
+            t += lst[ind]
+        tmp.append(t)
+    return tmp
+
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--population", help="total population (defauld: 100)")
-    parser.add_argument("-o", "--output_filename",nargs='?',const='experiment', help="if specified, will output the mp4 and graph. Note: either output or show the simulation real time")
-    parser.add_argument("-c", "--contamination_rate", help="contamination rate from 0 to 1 (default: 1)")
     parser.add_argument("-s", "--social_spacing", help="Total people on social spacing (default: 0)")
-    parser.add_argument("-a", "--total_area", help="if specified, will change the size of the environment. Used to crowd or open the space (default: 10)")
-    parser.add_argument("-m", "--recover_period", help="if specified, will change how long it takes for a sick person to recover. (default: 200 moves)")
+    parser.add_argument("-c", "--contamination_rate", help="contamination rate from 0 to 1 (default: 1)")
+    parser.add_argument("-a", "--total_area",
+                        help="if specified, will change the size of the environment. Used to crowd or open the space (default: 10)")
+    parser.add_argument("-r", "--recover_period",
+                        help="if specified, will change how long it takes for a sick person to recover. (default: 200 moves)")
+    parser.add_argument("-o", "--output_filename",nargs='?',const='experiment', help="if specified, will output the mp4 and graph. Note: either output or show the simulation real time")
+    parser.add_argument("-m", "--mortality", help="if specified, will change the chance of death(0-1). (default: 0)")
     args = parser.parse_args()
     params = {}
     if args.population:
@@ -266,6 +282,8 @@ if __name__ == '__main__':
         params.update({"total_area": args.total_area})
     if args.recover_period:
         params.update({"recover_period": args.recover_period})
+    if args.mortality:
+        params.update({"mortality": args.mortality})
 
     experiment = SocialDistancing(**params)
     experiment.run_simulation()

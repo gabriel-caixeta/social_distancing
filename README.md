@@ -32,6 +32,7 @@ A simulation on how social distancing can decrease the speed at which a disease 
 | -c | contamination_rate | Possibility of spreading the disease when interacting with someone |1|
 | -a | total_area | The size of the environment |20|
 | -r | recover_period | How long it takes for a person to get cured (in movements) |200
+| -m | mortality_rate | The chance of death at the end of the disease | 0 |
 | -o | output_filename | The output file ('_SimulationVideo.mp4' and '_Graph.png' will be added)|Experiment|
 
 
