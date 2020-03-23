@@ -96,12 +96,26 @@ class Person:
             self.sick_days = 0
             if not self.is_social_spacing():
                 self.redirect()
+            return True
+        else:
+            return False
 
     def recovered(self):
         self.status = 'Recovered'
 
     def is_contaminated(self):
         return True if self.status == 'Sick' else False
+
+    def awareness(self, current_situation):
+        dead = current_situation[3]
+        sick = current_situation[0]
+        total = sum(current_situation)
+
+        probability = (3*dead + sick)/total
+
+        if np.random.random_sample() <= probability:
+            print("became aware")
+            self.social_space()
 
 
 '''
@@ -115,7 +129,8 @@ class SocialDistancing:
                  contamination_rate=1,
                  total_area=20,
                  recover_period=200,
-                 mortality = 0):
+                 mortality=0,
+                 awareness=False):
 
         self.recover_period = recover_period
         self.population = int(population)
@@ -124,6 +139,7 @@ class SocialDistancing:
         self.output_filename = output_filename
         self.total_size = int(total_area)
         self.mortality = float(mortality)
+        self.awareness = bool(awareness)
 
         self.people = []
 
@@ -141,7 +157,8 @@ class SocialDistancing:
             if self.check_contamination(person):
                 tmp = np.random.random_sample()
                 if tmp <= self.contamination_rate:
-                    person.contaminate()
+                    if person.contaminate() and self.awareness:
+                        person.awareness(self.data[-1])
 
     def run_simulation(self):
         self.people = [Person('Normal',self.total_size,self.recover_period,self.mortality) for i in range(self.population)]
@@ -170,7 +187,14 @@ class SocialDistancing:
                                     [person.position_y for person in self.people if person.status == 'Dead'],'ko')
         self.d = [self.d_sick, self.d_healthy, self.d_recovered]
 
+        sick = len(self.d_sick.get_data()[0])
+        healthy = len(self.d_healthy.get_data()[0])
+        recovered = len(self.d_recovered.get_data()[0])
+        dead = len(self.d_dead.get_data()[0])
+
+
         self.data = []
+        self.data.append([sick, healthy, recovered, dead])
 
         self.end_animation = False
 
@@ -204,7 +228,7 @@ class SocialDistancing:
 
             self.data.append([sick, healthy, recovered,dead])
 
-            print('{} -> Sick: {}, Healthy: {}, Recovered: {}, Dead: {}'.format(i, sick, healthy, recovered, dead))
+            print('{} -> Sick: {}, Healthy: {}, Recovered: {}, Dead: {}, Probability: {}'.format(i, sick, healthy, recovered, dead,(3*dead+sick)/(self.population)))
 
             return self.d,
 
@@ -213,7 +237,7 @@ class SocialDistancing:
         if self.output_filename:
             mywriter = animation.FFMpegWriter(fps=60)
             try:
-                output_file = self.output_filename+'_SimulationVideo.mp4'
+                output_file = self.output_filename+'_SimulationVideo.mp4'()
                 anim.save(output_file, writer=mywriter)
             except:
                 print('An error occurred while trying to save the simulation video')
@@ -270,12 +294,13 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--population", help="total population (defauld: 100)")
     parser.add_argument("-s", "--social_spacing", help="Total people on social spacing (default: 0)")
     parser.add_argument("-c", "--contamination_rate", help="contamination rate from 0 to 1 (default: 1)")
-    parser.add_argument("-a", "--total_area",
+    parser.add_argument("-t", "--total_area",
                         help="if specified, will change the size of the environment. Used to crowd or open the space (default: 10)")
     parser.add_argument("-r", "--recover_period",
                         help="if specified, will change how long it takes for a sick person to recover. (default: 200 moves)")
     parser.add_argument("-o", "--output_filename",nargs='?',const='experiment', help="if specified, will output the mp4 and graph. Note: either output or show the simulation real time")
     parser.add_argument("-m", "--mortality", help="if specified, will change the chance of death(0-1). (default: 0)")
+    parser.add_argument("-a", "--awareness", action='store_true', default=False,help="If specified, people will be aware of the spread of the disease and might start social distancing if infected")
     args = parser.parse_args()
     params = {}
     if args.population:
@@ -292,6 +317,8 @@ if __name__ == '__main__':
         params.update({"recover_period": args.recover_period})
     if args.mortality:
         params.update({"mortality": args.mortality})
+    if args.awareness:
+        params.update({"awareness": args.awareness})
 
     experiment = SocialDistancing(**params)
     experiment.run_simulation()
